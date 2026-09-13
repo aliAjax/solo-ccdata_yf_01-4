@@ -20,6 +20,7 @@ const COLORS=['#ff7aa8','#77e1ba','#ffd166','#6a8cff','#b18cff','#ffffff','#1113
 const LOOP_NAMES={loop:'循环',once:'单次',pingpong:'往返'};
 const $=s=>document.querySelector(s);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const boolOf=v=>{if(typeof v==='string'){const s=v.trim().toLowerCase();if(s==='false'||s==='0')return false;if(s==='true'||s==='1')return true}if(typeof v==='number')return v!==0;return!!v}; // 字符串 false/0 → 关，true/1 → 开；数字零 → 关，非零 → 开
 const blankFrame=()=>Array(N*N).fill('');
 
 let state,history=[],future=[];
@@ -52,7 +53,7 @@ function sanitizeProject(p){
   const currentScene=clamp(Math.round(+p.currentScene)||0,0,list.length-1);
   const maxFrame=Math.max(0,list[currentScene].frames.length-1);
   const ui=Object.assign(defaultUi(),p.ui&&typeof p.ui==='object'?p.ui:{});
-  ui.grid=!!ui.grid;ui.onion=!!ui.onion; // 布尔设置按存档真值恢复
+  ui.grid=boolOf(ui.grid);ui.onion=boolOf(ui.onion); // 布尔设置按存档真值恢复
   return{version:2,nextId:Math.max(2,Math.round(+p.nextId)||2),scenes:list,
     currentScene,
     currentFrame:clamp(Math.round(+p.currentFrame)||0,0,maxFrame), // 当前帧落到当前场景有效范围
