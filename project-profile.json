@@ -6,6 +6,6 @@
   "projectForm": "完整项目",
   "codeScope": "frontend",
   "languages": ["HTML", "CSS", "JavaScript"],
-  "summary": "Pixel Loom pixel animation editor demo with frame management, onion skin, undo/redo, local save and PNG export.",
+  "summary": "Pixel Loom scene-based pixel animation workbench: multi-scene frame sequences with per-frame duration, playback range and loop modes, sprite-sheet import, frame-atlas export, full undo/redo, legacy save migration and local persistence.",
   "containerized": false
 }
