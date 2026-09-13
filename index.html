@@ -49,10 +49,14 @@ function sanitizeScene(s,i){
 function sanitizeProject(p){
   const list=(Array.isArray(p.scenes)?p.scenes:[]).map(sanitizeScene).filter(Boolean);
   if(!list.length)list.push(makeScene('场景 1',[blankFrame()],100));
+  const currentScene=clamp(Math.round(+p.currentScene)||0,0,list.length-1);
+  const maxFrame=Math.max(0,list[currentScene].frames.length-1);
+  const ui=Object.assign(defaultUi(),p.ui&&typeof p.ui==='object'?p.ui:{});
+  ui.grid=!!ui.grid;ui.onion=!!ui.onion; // 布尔设置按存档真值恢复
   return{version:2,nextId:Math.max(2,Math.round(+p.nextId)||2),scenes:list,
-    currentScene:clamp(Math.round(+p.currentScene)||0,0,list.length-1),
-    currentFrame:Math.max(0,Math.round(+p.currentFrame)||0),
-    ui:Object.assign(defaultUi(),p.ui&&typeof p.ui==='object'?p.ui:{})};
+    currentScene,
+    currentFrame:clamp(Math.round(+p.currentFrame)||0,0,maxFrame), // 当前帧落到当前场景有效范围
+    ui};
 }
 function migrateLegacy(d){ // 旧版 {frames,fps} → 场景化结构
   const fps=clamp(+d.fps||8,1,24);
@@ -164,9 +168,25 @@ function setPixel(e){
 }
 
 /* ---------- 帧操作 ---------- */
-function addFrame(){const s=S();pushHistory();const at=cur()+1,dur=s.durations[cur()]||100;s.frames.splice(at,0,blankFrame());s.durations.splice(at,0,dur);if(s.range.end>=at-1&&s.range.end===s.frames.length-2)s.range.end=s.frames.length-1;state.currentFrame=at;changed();setStatus('已新建帧 #'+(at+1))}
-function dupFrame(){const s=S(),i=cur();if(i<0)return;pushHistory();s.frames.splice(i+1,0,s.frames[i].slice());s.durations.splice(i+1,0,s.durations[i]);if(s.range.end===s.frames.length-2)s.range.end=s.frames.length-1;state.currentFrame=i+1;changed();setStatus('已复制帧')}
-function delFrame(){const s=S(),i=cur();if(i<0)return;pushHistory();s.frames.splice(i,1);s.durations.splice(i,1);const hi=Math.max(0,s.frames.length-1);s.range.start=clamp(s.range.start,0,hi);s.range.end=clamp(s.range.end,0,hi);if(!s.frames.length)s.range={start:0,end:0};state.currentFrame=clamp(i,0,s.frames.length-1);changed();setStatus(s.frames.length?'已删除帧':'已删除帧 · 场景为空')}
+/* 帧数组变化时，播放区间跟随保留帧平移 */
+function shiftRangeForInsert(s,at,oldLen){
+  if(!oldLen){s.range={start:0,end:0};return}
+  const toEnd=s.range.end===oldLen-1; // 区间原本到末尾 → 保持到末尾
+  if(s.range.start>=at)s.range.start++;
+  if(s.range.end>=at)s.range.end++;
+  if(toEnd)s.range.end=s.frames.length-1;
+}
+function shiftRangeForDelete(s,i){
+  let{start,end}=s.range;
+  if(start>i)start--;
+  if(end>=i)end--;
+  if(end<start)end=start;
+  const hi=Math.max(0,s.frames.length-1);
+  s.range=s.frames.length?{start:clamp(start,0,hi),end:clamp(end,0,hi)}:{start:0,end:0};
+}
+function addFrame(){const s=S();pushHistory();const at=cur()+1,oldLen=s.frames.length,dur=s.durations[cur()]||100;s.frames.splice(at,0,blankFrame());s.durations.splice(at,0,dur);shiftRangeForInsert(s,at,oldLen);state.currentFrame=at;changed();setStatus('已新建帧 #'+(at+1))}
+function dupFrame(){const s=S(),i=cur();if(i<0)return;pushHistory();const oldLen=s.frames.length;s.frames.splice(i+1,0,s.frames[i].slice());s.durations.splice(i+1,0,s.durations[i]);shiftRangeForInsert(s,i+1,oldLen);state.currentFrame=i+1;changed();setStatus('已复制帧')}
+function delFrame(){const s=S(),i=cur();if(i<0)return;pushHistory();s.frames.splice(i,1);s.durations.splice(i,1);shiftRangeForDelete(s,i);state.currentFrame=clamp(i,0,s.frames.length-1);changed();setStatus(s.frames.length?'已删除帧':'已删除帧 · 场景为空')}
 
 /* ---------- 场景操作 ---------- */
 function sceneAdd(){pushHistory();const sc=makeScene('场景 '+(state.nextId++),[blankFrame()],100);state.scenes.splice(state.currentScene+1,0,sc);state.currentScene++;state.currentFrame=0;stopPlay();changed();setStatus('已新增场景「'+sc.name+'」')}
